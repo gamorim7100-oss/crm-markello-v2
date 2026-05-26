@@ -56,20 +56,20 @@ export function MonthlyGoal({ currentValue }: MonthlyGoalProps) {
       </CardHeader>
       <CardContent>
         {isEditing ? (
-          <div className="flex items-center gap-2 mt-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+          <div className="flex items-center gap-1 mt-2">
+            <div className="relative flex-1 min-w-0">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
               <Input
                 value={(Number(editValue) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 onChange={handleCurrencyInput}
-                className="pl-9"
+                className="pl-7 h-8 text-xs"
                 autoFocus
               />
             </div>
-            <Button size="icon" variant="ghost" onClick={handleSave} className="h-9 w-9 text-success">
+            <Button size="icon" variant="ghost" onClick={handleSave} className="h-8 w-8 shrink-0 text-green-500 hover:text-green-400 hover:bg-green-500/10">
               <Check className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="ghost" onClick={() => setIsEditing(false)} className="h-9 w-9 text-destructive">
+            <Button size="icon" variant="ghost" onClick={() => setIsEditing(false)} className="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/10">
               <X className="h-4 w-4" />
             </Button>
           </div>
