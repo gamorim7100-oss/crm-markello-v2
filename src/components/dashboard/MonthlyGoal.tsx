@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Edit2, Check, X } from 'lucide-react';
+import { Edit2 } from 'lucide-react';
 import { formatCurrencyCompact } from '@/lib/utils';
 import { toast } from 'sonner';
 
