@@ -18,7 +18,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  updateMonthlyGoal: (goal: number) => Promise<void>;
+  updateMonthlyGoal: (goal: number) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateMonthlyGoal = async (goal: number) => {
-    if (!user) return;
+    if (!user) return { error: 'Usuário não autenticado' };
     const { error } = await supabase
       .from('profiles')
       .update({ monthly_goal: goal })
@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!error && profile) {
       setProfile({ ...profile, monthly_goal: goal });
     }
+    return { error: error?.message ?? null };
   };
 
   return (

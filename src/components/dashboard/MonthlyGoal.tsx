@@ -27,7 +27,12 @@ export function MonthlyGoal({ currentValue }: MonthlyGoalProps) {
       return;
     }
     
-    await updateMonthlyGoal(val);
+    const { error } = await updateMonthlyGoal(val);
+    if (error) {
+      toast.error('Erro ao atualizar meta', { description: 'A coluna monthly_goal pode estar faltando no banco. Execute o SQL de atualização.' });
+      return;
+    }
+    
     setIsEditing(false);
     toast.success('Meta atualizada com sucesso!');
   };
@@ -56,22 +61,24 @@ export function MonthlyGoal({ currentValue }: MonthlyGoalProps) {
       </CardHeader>
       <CardContent>
         {isEditing ? (
-          <div className="flex items-center gap-1 mt-2">
-            <div className="relative flex-1 min-w-0">
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="relative w-full">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
               <Input
                 value={(Number(editValue) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 onChange={handleCurrencyInput}
-                className="pl-7 h-8 text-xs"
+                className="pl-7 h-9 text-sm w-full"
                 autoFocus
               />
             </div>
-            <Button size="icon" variant="ghost" onClick={handleSave} className="h-8 w-8 shrink-0 text-green-500 hover:text-green-400 hover:bg-green-500/10">
-              <Check className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="ghost" onClick={() => setIsEditing(false)} className="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/10">
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex justify-end gap-1">
+              <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10">
+                Cancelar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleSave} className="h-7 px-2 text-xs text-green-500 hover:text-green-400 hover:bg-green-500/10">
+                Salvar
+              </Button>
+            </div>
           </div>
         ) : (
           <>
