@@ -309,7 +309,9 @@ export async function generateImageForSlide(prompt: string): Promise<string> {
     });
 
     if (!response.ok) {
-      throw new Error(`Erro na geração de imagem (${response.status})`);
+      const errorData = await response.json().catch(() => null);
+      const apiError = errorData?.error?.message || `Erro na geração de imagem (${response.status})`;
+      throw new Error(apiError);
     }
 
     const data = await response.json();
@@ -317,8 +319,9 @@ export async function generateImageForSlide(prompt: string): Promise<string> {
       return data.data[0].url;
     }
     throw new Error('Formato de resposta de imagem inválido.');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro DALL-E:', error);
-    throw new Error('Não foi possível gerar a imagem no momento.');
+    // Repassa a mensagem original se existir, senão usa a genérica
+    throw new Error(error.message || 'Não foi possível gerar a imagem no momento.');
   }
 }
