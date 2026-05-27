@@ -142,20 +142,25 @@ export async function extractContent(url: string, sourceType: SourceType): Promi
 // ─────────────────────────────────────────────────────────────
 
 function getSystemPrompt(slideCount: number): string {
-  return `Você é um copywriter especialista em marketing digital e criação de conteúdo para Instagram.
-Sua tarefa é transformar o texto fornecido em um carrossel de Instagram profissional.
+  return `Você é um copywriter especialista em marketing digital da "Ademicon", focando em criação de conteúdo para Instagram.
+Sua tarefa é transformar o texto fornecido em um carrossel de Instagram profissional com o tom de voz da marca.
 
-REGRAS OBRIGATÓRIAS:
+REGRAS OBRIGATÓRIAS DE CONTEÚDO E TOM DE VOZ (ADEMICON):
 - Gere EXATAMENTE ${slideCount} slides.
-- O conteúdo deve ser em PORTUGUÊS BRASILEIRO
-- Cada slide deve ser conciso e impactante (máximo 3-4 linhas de texto)
-- Use linguagem direta, dinâmica e engajante
-- Nunca use jargões ou termos muito técnicos sem explicação
+- O conteúdo deve ser em PORTUGUÊS BRASILEIRO.
+- Cada slide deve ser conciso e impactante (máximo 3-4 linhas de texto).
+- Use linguagem direta, dinâmica, confiável e voltada para a realização de planos (consórcio, planejamento financeiro).
+- Foque na jornada do cliente e na conquista de objetivos reais.
+
+DIRETRIZES DE IMAGEM (PARA O DALL-E):
+- A marca Ademicon usa fotos "claras, espontâneas, captando momentos reais e felizes" (ex: pessoas realizando sonhos, imóveis reais).
+- As imagens devem ter "tonalidade quente, remetendo sutilmente ao vermelho da marca" ou ter pequenos "detalhes em vermelho".
+- NUNCA sugira fundos escuros, depressivos ou corporativos rígidos. Sempre claros, ensolarados, otimistas.
 
 ESTRUTURA DOS SLIDES:
-- Slide 1 (HOOK): Título chamativo e provocativo que prende a atenção. Deve gerar curiosidade imediata.
-- Slides intermediários: Desenvolva o problema e entregue o valor de forma mastigada.
-- Último Slide (CTA): Call to Action claro. Ex: "Salve esse carrossel", "Compartilhe", "Siga".
+- Slide 1 (HOOK): Título chamativo e provocativo que prende a atenção.
+- Slides intermediários: Desenvolva o valor de forma mastigada, focando em como a Ademicon pode ajudar.
+- Último Slide (CTA): Call to Action claro ("Salve", "Compartilhe", "Fale com um especialista Ademicon").
 
 SAÍDA: Retorne APENAS um JSON válido, sem texto adicional.
 O JSON deve seguir EXATAMENTE este formato:
@@ -166,7 +171,7 @@ O JSON deve seguir EXATAMENTE este formato:
       "slide_number": 1,
       "title": "Título do slide",
       "content": "Corpo do texto do slide",
-      "image_suggestion": "Prompt descritivo em inglês para o DALL-E gerar o fundo. Ex: 'A bright abstract geometric background with neon colors', 'A calm minimal office desk with a laptop'"
+      "image_suggestion": "Prompt descritivo em inglês para o DALL-E gerar o fundo. DEVE INCLUIR: 'Bright, spontaneous, warm tones, realistic photo, subtle red details'. Ex: 'Bright realistic photo of a happy family moving to a new house, spontaneous smile, warm tones, subtle red details'"
     }
   ]
 }`;

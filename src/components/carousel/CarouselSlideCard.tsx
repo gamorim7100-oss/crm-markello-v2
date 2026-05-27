@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Pencil, Check, Lightbulb, GripVertical, Image as ImageIcon, Download, Loader2 } from 'lucide-react';
+import { Pencil, Check, Lightbulb, Image as ImageIcon, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import type { CarouselSlide } from '@/types/carousel.types';
 import { generateImageForSlide } from '@/services/carouselService';
 import { cn } from '@/lib/utils';
+import { LogoAdemicon } from './LogoAdemicon';
 
 interface CarouselSlideCardProps {
   slide: CarouselSlide;
@@ -14,30 +15,19 @@ interface CarouselSlideCardProps {
   onChange: (updated: CarouselSlide) => void;
 }
 
-// Gradientes distintos para cada posição de slide
-const SLIDE_GRADIENTS = [
-  'from-violet-600 via-purple-600 to-indigo-700',    // Hook — impacto máximo
-  'from-blue-600 via-cyan-600 to-teal-600',          // Contexto 1
-  'from-teal-600 via-emerald-600 to-green-600',      // Contexto 2
-  'from-amber-500 via-orange-500 to-red-500',        // Valor 1
-  'from-rose-500 via-pink-600 to-fuchsia-600',       // Valor 2
-  'from-sky-500 via-blue-500 to-violet-500',         // Valor 3
-  'from-indigo-500 via-purple-500 to-pink-500',      // Aprofundamento
-  'from-green-500 via-teal-500 to-cyan-500',         // Aprofundamento 2
-  'from-violet-700 via-fuchsia-700 to-pink-600',     // CTA — destaque final
-];
-
 function getSlideGradient(index: number): string {
-  return SLIDE_GRADIENTS[index % SLIDE_GRADIENTS.length];
+  // Ademicon Brand Gradients
+  // Use variations of red and dark gray
+  if (index === 0) {
+    return 'from-[var(--color-ademicon-red-dark1)] to-[var(--color-ademicon-red)]'; // Hook
+  }
+  if (index % 2 === 0) {
+    return 'from-[var(--color-ademicon-gray-dark)] to-[var(--color-ademicon-black)]';
+  }
+  return 'from-[var(--color-ademicon-red-dark2)] to-[var(--color-ademicon-red-dark1)]';
 }
 
-function getSlideLabel(slideNumber: number, totalSlides: number): string {
-  if (slideNumber === 1) return 'Hook';
-  if (slideNumber === totalSlides) return 'CTA';
-  if (slideNumber <= Math.ceil(totalSlides * 0.4)) return 'Contexto';
-  if (slideNumber <= Math.ceil(totalSlides * 0.75)) return 'Valor';
-  return 'Extra';
-}
+// Removed unused getSlideLabel function
 
 export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlideCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -48,7 +38,6 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
   const cardRef = useRef<HTMLDivElement>(null);
 
   const gradient = getSlideGradient(slide.slide_number - 1);
-  const label = getSlideLabel(slide.slide_number, totalSlides);
 
   const handleSave = () => {
     onChange({ ...slide, title: editTitle, content: editContent });
@@ -77,7 +66,6 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
   const handleDownload = async () => {
     if (!cardRef.current) return;
     try {
-      // Small timeout to ensure fonts and styles are fully loaded
       const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
       const link = document.createElement('a');
       link.download = `slide-${slide.slide_number}.png`;
@@ -95,7 +83,7 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
       <div
         ref={cardRef}
         className={cn(
-          'relative rounded-2xl overflow-hidden shadow-xl transition-all duration-300',
+          'relative overflow-hidden transition-all duration-300 font-ubuntu flex flex-col justify-between',
           !slide.image_url && 'hover:shadow-2xl hover:-translate-y-1',
           !slide.image_url && `bg-gradient-to-br ${gradient}`,
           slide.image_url && 'bg-cover bg-center'
@@ -106,49 +94,43 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
           backgroundImage: slide.image_url ? `url('${slide.image_url}')` : undefined
         }}
       >
-        {/* Overlay escuro se houver imagem para garantir legibilidade do texto */}
-        {slide.image_url && <div className="absolute inset-0 bg-black/50" />}
+        {/* Overlay escuro/vermelho se houver imagem para garantir legibilidade do texto e trazer pro tom quente */}
+        {slide.image_url && <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-ademicon-black)]/90 via-[var(--color-ademicon-red-dark2)]/50 to-transparent mix-blend-multiply" />}
+        {slide.image_url && <div className="absolute inset-0 bg-black/30" />}
 
         {/* Overlay de textura sutil (apenas se for gradiente) */}
         {!slide.image_url && <div className="absolute inset-0 bg-black/10" />}
-        {!slide.image_url && <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/5" />}
 
-        {/* Decorações geométricas (apenas gradiente) */}
-        {!slide.image_url && <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />}
-        {!slide.image_url && <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />}
-
-        {/* Header do card */}
-        <div className="relative z-10 flex items-center justify-between p-4">
-          <Badge
-            variant="secondary"
-            className="bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs font-semibold"
-          >
-            {slide.slide_number}/{totalSlides}
-          </Badge>
-          <Badge
-            variant="secondary"
-            className="bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs"
-          >
-            {label}
-          </Badge>
+        {/* Header do card - Topo */}
+        <div className="relative z-10 flex flex-col p-6 pb-0 pt-8">
+          <div className="flex items-center justify-between mb-4">
+             <LogoAdemicon className="w-24 opacity-90" unitName="Campeche" variant="white" />
+          </div>
+          
+          {/* Mostra badges no app, mas podemos escondê-las na imagem renderizada ou deixar pequenininhas */}
+          <div className="flex gap-2 opacity-50">
+            <Badge variant="secondary" className="bg-white/20 text-white border-none backdrop-blur-sm text-[10px] px-1.5 py-0 h-4">
+              {slide.slide_number}/{totalSlides}
+            </Badge>
+          </div>
         </div>
 
-        {/* Conteúdo */}
-        <div className="relative z-10 px-4 pb-4 flex flex-col gap-2 h-[calc(100%-64px)] justify-end">
+        {/* Conteúdo - Base */}
+        <div className="relative z-10 p-6 flex flex-col justify-end min-h-[50%]">
           {isEditing ? (
             // Modo edição
-            <div className="flex flex-col gap-2 bg-black/30 backdrop-blur-sm rounded-xl p-3">
+            <div className="flex flex-col gap-2 bg-black/60 backdrop-blur-sm rounded-xl p-3 -mx-2">
               <textarea
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-sm font-bold resize-none border border-white/20 focus:outline-none focus:border-white/50 transition-colors"
+                className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-sm font-bold resize-none border border-white/20 focus:outline-none focus:border-white/50 transition-colors font-ubuntu"
                 rows={2}
                 placeholder="Título do slide..."
               />
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-xs resize-none border border-white/20 focus:outline-none focus:border-white/50 transition-colors leading-relaxed"
+                className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-xs resize-none border border-white/20 focus:outline-none focus:border-white/50 transition-colors leading-relaxed font-ubuntu"
                 rows={4}
                 placeholder="Corpo do texto..."
               />
@@ -165,7 +147,7 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
                   size="sm"
                   variant="outline"
                   onClick={handleCancel}
-                  className="flex-1 h-7 text-xs border-white/30 text-white hover:bg-white/10"
+                  className="flex-1 h-7 text-xs border-white/30 text-white hover:bg-white/10 bg-transparent"
                 >
                   Cancelar
                 </Button>
@@ -173,13 +155,17 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
             </div>
           ) : (
             // Modo visualização
-            <div className="space-y-2">
-              <h3 className="text-white font-bold text-base leading-tight line-clamp-3 drop-shadow-sm">
-                {slide.title}
-              </h3>
-              <p className="text-white/85 text-xs leading-relaxed line-clamp-4">
-                {slide.content}
-              </p>
+            <div className="space-y-3">
+              {slide.title && (
+                <h3 className="text-white font-bold text-[22px] leading-[1.1] drop-shadow-md">
+                  {slide.title}
+                </h3>
+              )}
+              {slide.content && (
+                <p className="text-white/90 text-[13px] leading-relaxed drop-shadow-sm font-medium">
+                  {slide.content}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -189,23 +175,16 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
           <button
             onClick={() => setIsEditing(true)}
             className={cn(
-              'absolute top-2 right-12 z-20 h-7 w-7 rounded-full',
-              'bg-white/20 backdrop-blur-sm border border-white/30',
+              'absolute top-2 right-2 z-20 h-7 w-7 rounded-full',
+              'bg-black/50 backdrop-blur-sm border border-white/30',
               'flex items-center justify-center',
               'opacity-0 group-hover:opacity-100 transition-all duration-200',
-              'hover:bg-white/40'
+              'hover:bg-black/70'
             )}
             title="Editar slide"
           >
             <Pencil className="h-3.5 w-3.5 text-white" />
           </button>
-        )}
-
-        {/* Handle de drag (visual) - apenas no hover */}
-        {!isEditing && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-40 transition-opacity">
-            <GripVertical className="h-4 w-4 text-white" />
-          </div>
         )}
       </div>
 
@@ -224,7 +203,7 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
           </Button>
           <Button 
             size="sm" 
-            className="flex-1 h-8 text-xs"
+            className="flex-1 h-8 text-xs bg-[var(--color-ademicon-red)] hover:bg-[var(--color-ademicon-red-dark1)] text-white"
             onClick={handleDownload}
           >
             <Download className="h-3.5 w-3.5 mr-1.5" />
