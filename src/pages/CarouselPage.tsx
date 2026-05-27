@@ -14,13 +14,14 @@ export default function CarouselPage() {
   // Guarda a última URL/tipo para poder regenerar
   const [lastUrl, setLastUrl] = useState('');
   const [lastSourceType, setLastSourceType] = useState<SourceType>('news');
+  const [lastSlideCount, setLastSlideCount] = useState(6);
 
-  const runGeneration = useCallback(async (url: string, sourceType: SourceType) => {
+  const runGeneration = useCallback(async (url: string, sourceType: SourceType, slideCount: number) => {
     setStatus('extracting');
     setStatusMessage('Extraindo conteúdo da URL...');
 
     try {
-      const data = await generateCarouselFromUrl(url, sourceType, (msg) => {
+      const data = await generateCarouselFromUrl(url, sourceType, slideCount, (msg) => {
         setStatusMessage(msg);
         if (msg.toLowerCase().includes('gerando')) {
           setStatus('generating');
@@ -48,17 +49,18 @@ export default function CarouselPage() {
     }
   }, []);
 
-  const handleGenerate = (url: string, sourceType: SourceType) => {
+  const handleGenerate = (url: string, sourceType: SourceType, slideCount: number) => {
     setLastUrl(url);
     setLastSourceType(sourceType);
+    setLastSlideCount(slideCount);
     setCarouselData(null);
-    runGeneration(url, sourceType);
+    runGeneration(url, sourceType, slideCount);
   };
 
   const handleRegenerate = () => {
     if (lastUrl) {
       setCarouselData(null);
-      runGeneration(lastUrl, lastSourceType);
+      runGeneration(lastUrl, lastSourceType, lastSlideCount);
     }
   };
 

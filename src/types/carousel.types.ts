@@ -11,6 +11,8 @@ export interface CarouselSlide {
   title: string;
   content: string;
   image_suggestion: string;
+  image_url?: string;
+  is_generating_image?: boolean;
 }
 
 /** Resposta completa gerada pela LLM */
@@ -26,4 +28,5 @@ export type GenerationStatus = 'idle' | 'extracting' | 'generating' | 'done' | '
 export interface GenerateCarouselPayload {
   url: string;
   sourceType: SourceType;
+  slideCount: number;
 }

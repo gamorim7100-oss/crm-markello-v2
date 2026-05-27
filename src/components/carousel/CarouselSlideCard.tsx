@@ -1,8 +1,11 @@
-import { useState } from 'react';
-import { Pencil, Check, Lightbulb, GripVertical } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Pencil, Check, Lightbulb, GripVertical, Image as ImageIcon, Download, Loader2 } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { CarouselSlide } from '@/types/carousel.types';
+import { generateImageForSlide } from '@/services/carouselService';
 import { cn } from '@/lib/utils';
 
 interface CarouselSlideCardProps {
@@ -41,6 +44,8 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
   const [editTitle, setEditTitle] = useState(slide.title);
   const [editContent, setEditContent] = useState(slide.content);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const gradient = getSlideGradient(slide.slide_number - 1);
   const label = getSlideLabel(slide.slide_number, totalSlides);
@@ -56,24 +61,61 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
     setIsEditing(false);
   };
 
+  const handleGenerateImage = async () => {
+    try {
+      setIsGeneratingImg(true);
+      const imageUrl = await generateImageForSlide(slide.image_suggestion);
+      onChange({ ...slide, image_url: imageUrl });
+      toast.success('Fundo gerado com sucesso!');
+    } catch (error: any) {
+      toast.error('Erro ao gerar imagem', { description: error.message });
+    } finally {
+      setIsGeneratingImg(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!cardRef.current) return;
+    try {
+      // Small timeout to ensure fonts and styles are fully loaded
+      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement('a');
+      link.download = `slide-${slide.slide_number}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('Arte baixada com sucesso!');
+    } catch (err) {
+      toast.error('Erro ao baixar arte');
+    }
+  };
+
   return (
-    <div className="flex-shrink-0 group" style={{ width: '280px' }}>
+    <div className="flex-shrink-0 group flex flex-col gap-3" style={{ width: '280px' }}>
       {/* Card principal — proporção 4:5 (280 x 350) */}
       <div
+        ref={cardRef}
         className={cn(
           'relative rounded-2xl overflow-hidden shadow-xl transition-all duration-300',
-          'hover:shadow-2xl hover:-translate-y-1',
-          `bg-gradient-to-br ${gradient}`
+          !slide.image_url && 'hover:shadow-2xl hover:-translate-y-1',
+          !slide.image_url && `bg-gradient-to-br ${gradient}`,
+          slide.image_url && 'bg-cover bg-center'
         )}
-        style={{ width: '280px', height: '350px' }}
+        style={{ 
+          width: '280px', 
+          height: '350px',
+          backgroundImage: slide.image_url ? `url('${slide.image_url}')` : undefined
+        }}
       >
-        {/* Overlay de textura sutil */}
-        <div className="absolute inset-0 bg-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/5" />
+        {/* Overlay escuro se houver imagem para garantir legibilidade do texto */}
+        {slide.image_url && <div className="absolute inset-0 bg-black/50" />}
 
-        {/* Decorações geométricas */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+        {/* Overlay de textura sutil (apenas se for gradiente) */}
+        {!slide.image_url && <div className="absolute inset-0 bg-black/10" />}
+        {!slide.image_url && <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/5" />}
+
+        {/* Decorações geométricas (apenas gradiente) */}
+        {!slide.image_url && <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />}
+        {!slide.image_url && <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />}
 
         {/* Header do card */}
         <div className="relative z-10 flex items-center justify-between p-4">
@@ -159,26 +201,52 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
           </button>
         )}
 
-        {/* Handle de drag (visual) */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-40 transition-opacity">
-          <GripVertical className="h-4 w-4 text-white" />
-        </div>
+        {/* Handle de drag (visual) - apenas no hover */}
+        {!isEditing && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-40 transition-opacity">
+            <GripVertical className="h-4 w-4 text-white" />
+          </div>
+        )}
       </div>
 
-      {/* Sugestão de imagem (abaixo do card) */}
-      <div className="mt-2 px-1">
-        <button
-          onClick={() => setShowSuggestion(!showSuggestion)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Lightbulb className="h-3 w-3 text-amber-500" />
-          Sugestão de imagem
-        </button>
-        {showSuggestion && (
-          <p className="mt-1 text-xs text-muted-foreground bg-muted/60 rounded-md px-2.5 py-2 leading-relaxed animate-in fade-in slide-in-from-top-1">
-            {slide.image_suggestion}
-          </p>
-        )}
+      {/* Ações abaixo do card */}
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="flex-1 h-8 text-xs bg-card hover:bg-muted"
+            onClick={handleGenerateImage}
+            disabled={isGeneratingImg}
+          >
+            {isGeneratingImg ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5 mr-1.5" />}
+            Fundo IA
+          </Button>
+          <Button 
+            size="sm" 
+            className="flex-1 h-8 text-xs"
+            onClick={handleDownload}
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Baixar Arte
+          </Button>
+        </div>
+
+        {/* Sugestão de imagem */}
+        <div className="px-1">
+          <button
+            onClick={() => setShowSuggestion(!showSuggestion)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Lightbulb className="h-3 w-3 text-amber-500" />
+            Sugestão de imagem
+          </button>
+          {showSuggestion && (
+            <p className="mt-1 text-xs text-muted-foreground bg-muted/60 rounded-md px-2.5 py-2 leading-relaxed animate-in fade-in slide-in-from-top-1">
+              {slide.image_suggestion}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

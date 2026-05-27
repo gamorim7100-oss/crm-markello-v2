@@ -141,11 +141,12 @@ export async function extractContent(url: string, sourceType: SourceType): Promi
 // Etapa 2: Geração com LLM (OpenAI gpt-4o-mini)
 // ─────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Você é um copywriter especialista em marketing digital e criação de conteúdo para Instagram.
+function getSystemPrompt(slideCount: number): string {
+  return `Você é um copywriter especialista em marketing digital e criação de conteúdo para Instagram.
 Sua tarefa é transformar o texto fornecido em um carrossel de Instagram profissional.
 
 REGRAS OBRIGATÓRIAS:
-- Gere entre 6 e 9 slides (não menos, não mais)
+- Gere EXATAMENTE ${slideCount} slides.
 - O conteúdo deve ser em PORTUGUÊS BRASILEIRO
 - Cada slide deve ser conciso e impactante (máximo 3-4 linhas de texto)
 - Use linguagem direta, dinâmica e engajante
@@ -153,12 +154,10 @@ REGRAS OBRIGATÓRIAS:
 
 ESTRUTURA DOS SLIDES:
 - Slide 1 (HOOK): Título chamativo e provocativo que prende a atenção. Deve gerar curiosidade imediata.
-- Slides 2-3 (PROBLEMA/CONTEXTO): Desenvolva o problema ou situação de forma que o leitor se identifique.
-- Slides 4-6 (VALOR/SOLUÇÃO): Entregue o valor principal de forma "mastigada" — insights concretos, dicas ou revelações.
-- Slide 7-8 (APROFUNDAMENTO): Desenvolva mais o tema com dados, exemplos ou detalhes relevantes se houver conteúdo.
-- Último Slide (CTA): Call to Action claro. Ex: "Salve esse carrossel", "Compartilhe com quem precisa", "Siga para mais conteúdo".
+- Slides intermediários: Desenvolva o problema e entregue o valor de forma mastigada.
+- Último Slide (CTA): Call to Action claro. Ex: "Salve esse carrossel", "Compartilhe", "Siga".
 
-SAÍDA: Retorne APENAS um JSON válido, sem texto adicional, sem markdown, sem explicações.
+SAÍDA: Retorne APENAS um JSON válido, sem texto adicional.
 O JSON deve seguir EXATAMENTE este formato:
 {
   "carousel_title": "Título descritivo do carrossel",
@@ -167,17 +166,19 @@ O JSON deve seguir EXATAMENTE este formato:
       "slide_number": 1,
       "title": "Título do slide",
       "content": "Corpo do texto do slide",
-      "image_suggestion": "Descrição curta de imagem ou cor de fundo sugerida"
+      "image_suggestion": "Prompt descritivo em inglês para o DALL-E gerar o fundo. Ex: 'A bright abstract geometric background with neon colors', 'A calm minimal office desk with a laptop'"
     }
   ]
 }`;
+}
 
 /**
  * Envia o conteúdo extraído para a OpenAI e retorna CarouselData tipado.
  */
 export async function generateCarousel(
   extractedContent: string,
-  sourceUrl: string
+  sourceUrl: string,
+  slideCount: number
 ): Promise<CarouselData> {
   if (!OPENAI_API_KEY) {
     throw new Error(
@@ -192,7 +193,7 @@ export async function generateCarousel(
     temperature: 0.7,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt(slideCount) },
       { role: 'user', content: userMessage },
     ],
   };
@@ -265,13 +266,59 @@ export async function generateCarousel(
 export async function generateCarouselFromUrl(
   url: string,
   sourceType: SourceType,
+  slideCount: number,
   onStatusChange?: (status: string) => void
 ): Promise<CarouselData> {
   onStatusChange?.('Extraindo conteúdo da URL...');
   const content = await extractContent(url, sourceType);
 
   onStatusChange?.('Gerando carrossel com IA...');
-  const carousel = await generateCarousel(content, url);
+  const carousel = await generateCarousel(content, url, slideCount);
 
   return carousel;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Etapa 3: Geração de Imagem com DALL-E 3
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Gera uma imagem usando DALL-E 3 com base na sugestão de imagem da IA.
+ */
+export async function generateImageForSlide(prompt: string): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    throw new Error('Chave da API OpenAI não configurada.');
+  }
+
+  const enhancedPrompt = `A high quality, aesthetic background image for an Instagram carousel slide. No text in the image. Style: Modern, clean, minimal. Concept: ${prompt}`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: enhancedPrompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'standard',
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro na geração de imagem (${response.status})`);
+    }
+
+    const data = await response.json();
+    if (data.data && data.data[0] && data.data[0].url) {
+      return data.data[0].url;
+    }
+    throw new Error('Formato de resposta de imagem inválido.');
+  } catch (error) {
+    console.error('Erro DALL-E:', error);
+    throw new Error('Não foi possível gerar a imagem no momento.');
+  }
 }

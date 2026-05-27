@@ -8,7 +8,7 @@ import type { GenerationStatus, SourceType } from '@/types/carousel.types';
 import { cn } from '@/lib/utils';
 
 interface CarouselInputFormProps {
-  onGenerate: (url: string, sourceType: SourceType) => void;
+  onGenerate: (url: string, sourceType: SourceType, slideCount: number) => void;
   status: GenerationStatus;
   statusMessage?: string;
 }
@@ -24,6 +24,7 @@ const STATUS_LABELS: Record<GenerationStatus, string> = {
 export function CarouselInputForm({ onGenerate, status, statusMessage }: CarouselInputFormProps) {
   const [url, setUrl] = useState('');
   const [sourceType, setSourceType] = useState<SourceType>('news');
+  const [slideCount, setSlideCount] = useState(6);
   const [urlError, setUrlError] = useState('');
 
   const isLoading = status === 'extracting' || status === 'generating';
@@ -47,7 +48,7 @@ export function CarouselInputForm({ onGenerate, status, statusMessage }: Carouse
     }
 
     setUrlError('');
-    onGenerate(url.trim(), sourceType);
+    onGenerate(url.trim(), sourceType, slideCount);
   };
 
   return (
@@ -84,6 +85,34 @@ export function CarouselInputForm({ onGenerate, status, statusMessage }: Carouse
             <Play className="h-4 w-4" />
             Vídeo do YouTube
           </button>
+        </div>
+      </div>
+
+      {/* Slide Count Slider */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="slide-count" className="text-sm font-medium text-foreground">
+            Quantidade de Slides
+          </Label>
+          <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+            {slideCount}
+          </span>
+        </div>
+        <div className="px-1">
+          <input
+            id="slide-count"
+            type="range"
+            min={1}
+            max={10}
+            value={slideCount}
+            onChange={(e) => setSlideCount(Number(e.target.value))}
+            className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+            disabled={isLoading}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground px-1">
+          <span>1</span>
+          <span>10</span>
         </div>
       </div>
 
