@@ -9,6 +9,7 @@ import { lazy, Suspense } from 'react';
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const KanbanPage = lazy(() => import('@/pages/KanbanPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
+const CarouselPage = lazy(() => import('@/pages/CarouselPage'));
 
 function App() {
   return (
@@ -40,6 +41,14 @@ function App() {
                 element={
                   <Suspense fallback={<div className="p-8">Carregando Agenda...</div>}>
                     <CalendarPage />
+                  </Suspense>
+                } 
+              />
+              <Route 
+                path="/carrossel" 
+                element={
+                  <Suspense fallback={<div className="p-8">Carregando Gerador...</div>}>
+                    <CarouselPage />
                   </Suspense>
                 } 
               />

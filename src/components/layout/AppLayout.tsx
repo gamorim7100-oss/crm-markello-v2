@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Building2, LayoutDashboard, LogOut, KanbanSquare, CalendarDays } from 'lucide-react';
+import { Building2, LayoutDashboard, LogOut, KanbanSquare, CalendarDays, LayoutTemplate } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -32,6 +32,7 @@ export function AppLayout() {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Funil de Vendas', href: '/kanban', icon: KanbanSquare },
     { name: 'Agenda', href: '/agenda', icon: CalendarDays },
+    { name: 'Gerador de Carrossel', href: '/carrossel', icon: LayoutTemplate },
   ];
 
   const userInitials = profile?.name
