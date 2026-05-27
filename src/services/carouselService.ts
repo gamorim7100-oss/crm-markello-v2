@@ -314,8 +314,13 @@ export async function generateImageForSlide(prompt: string): Promise<string> {
     }
 
     const data = await response.json();
-    if (data.data && data.data[0] && data.data[0].url) {
-      return data.data[0].url;
+    if (data.data && data.data[0]) {
+      if (data.data[0].url) {
+        return data.data[0].url;
+      }
+      if (data.data[0].b64_json) {
+        return `data:image/png;base64,${data.data[0].b64_json}`;
+      }
     }
     throw new Error('Formato de resposta de imagem inválido.');
   } catch (error: any) {
