@@ -300,11 +300,10 @@ export async function generateImageForSlide(prompt: string): Promise<string> {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
+        model: 'dall-e-2',
         prompt: enhancedPrompt,
         n: 1,
         size: '1024x1024',
-        quality: 'standard',
       }),
     });
 
