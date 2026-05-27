@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import type { CarouselSlide } from '@/types/carousel.types';
 import { generateImageForSlide } from '@/services/carouselService';
 import { cn } from '@/lib/utils';
-import { LogoAdemicon } from './LogoAdemicon';
 
 interface CarouselSlideCardProps {
   slide: CarouselSlide;
@@ -17,7 +16,6 @@ interface CarouselSlideCardProps {
 
 function getSlideGradient(index: number): string {
   // Ademicon Brand Gradients
-  // Use variations of red and dark gray
   if (index === 0) {
     return 'from-[var(--color-ademicon-red-dark1)] to-[var(--color-ademicon-red)]'; // Hook
   }
@@ -26,8 +24,6 @@ function getSlideGradient(index: number): string {
   }
   return 'from-[var(--color-ademicon-red-dark2)] to-[var(--color-ademicon-red-dark1)]';
 }
-
-// Removed unused getSlideLabel function
 
 export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlideCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -94,80 +90,84 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
           backgroundImage: slide.image_url ? `url('${slide.image_url}')` : undefined
         }}
       >
-        {/* Overlay escuro/vermelho se houver imagem para garantir legibilidade do texto e trazer pro tom quente */}
-        {slide.image_url && <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-ademicon-black)]/90 via-[var(--color-ademicon-red-dark2)]/50 to-transparent mix-blend-multiply" />}
-        {slide.image_url && <div className="absolute inset-0 bg-black/30" />}
+        {/* Overlay escuro se houver imagem para ajudar no contraste inicial */}
+        {slide.image_url && <div className="absolute inset-0 bg-black/20" />}
 
         {/* Overlay de textura sutil (apenas se for gradiente) */}
         {!slide.image_url && <div className="absolute inset-0 bg-black/10" />}
 
-        {/* Header do card - Topo */}
-        <div className="relative z-10 flex flex-col p-6 pb-0 pt-8">
-          <div className="flex items-center justify-between mb-4">
-             <LogoAdemicon className="w-24 opacity-90" unitName="Campeche" variant="white" />
+        {/* Header do card - Topo (Logo placeholder para upload futuro) */}
+        <div className="relative z-10 flex flex-col p-6 pb-0 pt-6 min-h-[60px]">
+          {/* Logo container invisível por enquanto, preservando espaço */}
+          <div className="flex items-center justify-between mb-4 h-8">
+            {/* O logo PNG do usuário entrará aqui no futuro */}
           </div>
           
-          {/* Mostra badges no app, mas podemos escondê-las na imagem renderizada ou deixar pequenininhas */}
-          <div className="flex gap-2 opacity-50">
-            <Badge variant="secondary" className="bg-white/20 text-white border-none backdrop-blur-sm text-[10px] px-1.5 py-0 h-4">
+          <div className="flex gap-2 opacity-60">
+            <Badge variant="secondary" className="bg-black/30 text-white border-none backdrop-blur-md text-[10px] px-1.5 py-0 h-4 shadow-sm">
               {slide.slide_number}/{totalSlides}
             </Badge>
           </div>
         </div>
 
-        {/* Conteúdo - Base */}
-        <div className="relative z-10 p-6 flex flex-col justify-end min-h-[50%]">
-          {isEditing ? (
-            // Modo edição
-            <div className="flex flex-col gap-2 bg-black/60 backdrop-blur-sm rounded-xl p-3 -mx-2">
-              <textarea
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-sm font-bold resize-none border border-white/20 focus:outline-none focus:border-white/50 transition-colors font-ubuntu"
-                rows={2}
-                placeholder="Título do slide..."
-              />
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-xs resize-none border border-white/20 focus:outline-none focus:border-white/50 transition-colors leading-relaxed font-ubuntu"
-                rows={4}
-                placeholder="Corpo do texto..."
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  className="flex-1 h-7 text-xs bg-white text-gray-900 hover:bg-white/90"
-                >
-                  <Check className="h-3 w-3 mr-1" />
-                  Salvar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancel}
-                  className="flex-1 h-7 text-xs border-white/30 text-white hover:bg-white/10 bg-transparent"
-                >
-                  Cancelar
-                </Button>
+        {/* Conteúdo - Base com Caixa Sólida/Glassmorphism */}
+        <div className="relative z-10 p-4 pt-0 w-full flex flex-col justify-end">
+          <div className={cn(
+            "rounded-xl p-5 shadow-2xl backdrop-blur-md border border-white/10",
+            slide.image_url ? "bg-[var(--color-ademicon-black)]/80" : "bg-black/20"
+          )}>
+            {isEditing ? (
+              // Modo edição
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-sm font-bold resize-none border border-white/20 focus:outline-none focus:border-[var(--color-ademicon-red)] transition-colors font-ubuntu"
+                  rows={2}
+                  placeholder="Título do slide..."
+                />
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="w-full bg-white/10 text-white placeholder-white/50 rounded-lg px-3 py-2 text-xs resize-none border border-white/20 focus:outline-none focus:border-[var(--color-ademicon-red)] transition-colors leading-relaxed font-ubuntu"
+                  rows={4}
+                  placeholder="Corpo do texto..."
+                />
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    className="flex-1 h-7 text-xs bg-[var(--color-ademicon-red)] hover:bg-[var(--color-ademicon-red-bright)] text-white border-none"
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    Salvar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancel}
+                    className="flex-1 h-7 text-xs border-white/30 text-white hover:bg-white/10 bg-transparent"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            // Modo visualização
-            <div className="space-y-3">
-              {slide.title && (
-                <h3 className="text-white font-bold text-[22px] leading-[1.1] drop-shadow-md">
-                  {slide.title}
-                </h3>
-              )}
-              {slide.content && (
-                <p className="text-white/90 text-[13px] leading-relaxed drop-shadow-sm font-medium">
-                  {slide.content}
-                </p>
-              )}
-            </div>
-          )}
+            ) : (
+              // Modo visualização
+              <div className="space-y-2.5">
+                {slide.title && (
+                  <h3 className="text-white font-bold text-lg leading-[1.15] drop-shadow-md">
+                    {slide.title}
+                  </h3>
+                )}
+                {slide.content && (
+                  <div className="text-white/90 text-xs leading-relaxed font-medium space-y-1.5 whitespace-pre-wrap">
+                    {slide.content}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Botão de edição — aparece no hover */}
@@ -175,11 +175,11 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
           <button
             onClick={() => setIsEditing(true)}
             className={cn(
-              'absolute top-2 right-2 z-20 h-7 w-7 rounded-full',
-              'bg-black/50 backdrop-blur-sm border border-white/30',
-              'flex items-center justify-center',
+              'absolute top-4 right-4 z-20 h-8 w-8 rounded-full',
+              'bg-black/60 backdrop-blur-md border border-white/20',
+              'flex items-center justify-center shadow-lg',
               'opacity-0 group-hover:opacity-100 transition-all duration-200',
-              'hover:bg-black/70'
+              'hover:bg-black/80 hover:scale-105'
             )}
             title="Editar slide"
           >
