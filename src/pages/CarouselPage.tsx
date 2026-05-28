@@ -10,7 +10,7 @@ import type { CarouselV2, TemplateType, SourceType, GenerationStatus } from '@/t
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import AdemiconLogo from '@/assets/ademicon/Ademicon_logo.svg';
+import AdemiconLogo from '@/assets/ademicon/ademicon_logo.svg';
 
 export default function CarouselPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | null>(null);
