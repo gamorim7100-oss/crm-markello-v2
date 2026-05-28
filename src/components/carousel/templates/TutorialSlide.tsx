@@ -57,16 +57,22 @@ export function TutorialSlide({ slide, settings, totalSlides }: Props) {
           className="flex items-center justify-between"
           style={{ marginBottom: '60px' }}
         >
-          <span
-            style={{
-              fontSize: '28px',
-              fontWeight: 600,
-              color: isCover ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.35)',
-              letterSpacing: '0.03em',
-            }}
-          >
-            {settings.handle}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {settings.logoUrl ? (
+              <img src={settings.logoUrl} alt="Logo" style={{ height: '36px', objectFit: 'contain' }} />
+            ) : (
+              <span
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 600,
+                  color: isCover ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.35)',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                {settings.handle}
+              </span>
+            )}
+          </div>
           <span
             style={{
               fontSize: '28px',
@@ -252,11 +258,15 @@ export function TutorialSlide({ slide, settings, totalSlides }: Props) {
       {/* Bottom handle bar */}
       <div
         className="absolute bottom-0 left-0 right-0"
-        style={{ padding: '40px 108px', display: 'flex', justifyContent: 'flex-end' }}
+        style={{ padding: '40px 108px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
       >
-        <span style={{ fontSize: '28px', color: isCover ? 'rgba(255,255,255,0.5)' : '#94a3b8' }}>
-          {settings.handle}
-        </span>
+        {settings.logoUrl ? (
+          <img src={settings.logoUrl} alt="Logo" style={{ height: '32px', objectFit: 'contain', opacity: isCover ? 0.7 : 0.4 }} />
+        ) : (
+          <span style={{ fontSize: '28px', color: isCover ? 'rgba(255,255,255,0.5)' : '#94a3b8' }}>
+            {settings.handle}
+          </span>
+        )}
       </div>
     </div>
   );

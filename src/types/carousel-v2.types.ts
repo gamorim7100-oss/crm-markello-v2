@@ -14,6 +14,13 @@ export type TemplateType =
 /** Slide role within a carousel */
 export type SlideType = 'COVER' | 'CONTENT' | 'TRANSITION' | 'CTA';
 
+/** Source type for AI generation */
+export type SourceType = 'news' | 'video';
+
+/** Generation status state */
+export type GenerationStatus = 'idle' | 'extracting' | 'generating' | 'done' | 'error';
+
+
 /** Global design settings applied to all slides */
 export interface GlobalSettings {
   primaryColor: string;

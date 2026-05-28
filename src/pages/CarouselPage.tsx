@@ -1,75 +1,77 @@
-import { useState, useCallback } from 'react';
-import { toast } from 'sonner'
-import { LayoutTemplate, Info, Link2, Layers } from 'lucide-react';
-import { CarouselInputForm } from '@/components/carousel/CarouselInputForm';
-import { CarouselPreview } from '@/components/carousel/CarouselPreview';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { LayoutTemplate, Layers, Wand2, Link2, Video, Loader2 } from 'lucide-react';
 import { TemplateSelector } from '@/components/carousel/TemplateSelector';
 import { TemplateForm } from '@/components/carousel/TemplateForm';
 import { LivePreview } from '@/components/carousel/LivePreview';
-import { generateCarouselFromUrl } from '@/services/carouselService';
-import type { CarouselData, GenerationStatus, SourceType } from '@/types/carousel.types';
-import type { CarouselV2, TemplateType } from '@/types/carousel-v2.types';
-import { cn } from '@/lib/utils';
-
-type PageMode = 'ai' | 'templates';
+import { generateCarouselV2FromUrl } from '@/services/carouselService';
+import { buildDefaultSlides } from '@/types/carousel-v2.types';
+import type { CarouselV2, TemplateType, SourceType, GenerationStatus } from '@/types/carousel-v2.types';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import AdemiconLogo from '@/assets/ademicon/Ademicon_logo.svg';
 
 export default function CarouselPage() {
-  const [mode, setMode] = useState<PageMode>('ai');
-
-  // ── AI Mode State ───────────────────────────────────────────
-  const [status, setStatus] = useState<GenerationStatus>('idle');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [carouselData, setCarouselData] = useState<CarouselData | null>(null);
-  const [lastUrl, setLastUrl] = useState('');
-  const [lastSourceType, setLastSourceType] = useState<SourceType>('news');
-  const [lastSlideCount, setLastSlideCount] = useState(6);
-
-  // ── Template Mode State ─────────────────────────────────────
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | null>(null);
   const [carouselV2, setCarouselV2] = useState<CarouselV2 | null>(null);
 
-  // ── AI Generation ───────────────────────────────────────────
-  const runGeneration = useCallback(async (url: string, sourceType: SourceType, slideCount: number) => {
+  // AI Generation State
+  const [url, setUrl] = useState('');
+  const [sourceType, setSourceType] = useState<SourceType>('news');
+  const [status, setStatus] = useState<GenerationStatus>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
+
+  // Handle template selection: initializes the carousel with default structure so user can edit manually or via AI
+  const handleSelectTemplate = (type: TemplateType) => {
+    setSelectedTemplate(type);
+    setCarouselV2({
+      carouselId: crypto.randomUUID(),
+      templateType: type,
+      globalSettings: {
+        primaryColor: '#e11d48', // Ademicon Red
+        secondaryColor: '#1d4ed8', // Ademicon Blue
+        accentColor: '#fbbf24',
+        fontFamily: 'Inter',
+        handle: '@ademicon',
+        logoUrl: AdemiconLogo,
+        aspectRatio: '4:5',
+      },
+      slides: buildDefaultSlides(type),
+    });
+    setStatus('idle');
+    setUrl('');
+  };
+
+  const handleGenerateAI = async () => {
+    if (!selectedTemplate || !carouselV2) return;
+    if (!url.trim()) {
+      toast.error('Informe uma URL válida');
+      return;
+    }
+
     setStatus('extracting');
-    setStatusMessage('Extraindo conteúdo da URL...');
     try {
-      const data = await generateCarouselFromUrl(url, sourceType, slideCount, (msg) => {
-        setStatusMessage(msg);
-        if (msg.toLowerCase().includes('gerando')) setStatus('generating');
-      });
-      setCarouselData(data);
+      const generatedSlides = await generateCarouselV2FromUrl(
+        url.trim(),
+        sourceType,
+        selectedTemplate,
+        setStatusMessage
+      );
+
+      // Preserve global settings, just swap slides
+      setCarouselV2((prev) => prev ? { ...prev, slides: generatedSlides } : null);
       setStatus('done');
-      toast.success('Carrossel gerado com sucesso!', {
-        description: `${data.slides.length} slides criados e prontos para editar.`,
-      });
-    } catch (error: unknown) {
+      toast.success('Conteúdo gerado com sucesso!', { description: 'Agora você pode revisar e ajustar no editor.' });
+    } catch (error: any) {
       setStatus('error');
-      const message = error instanceof Error ? error.message : 'Ocorreu um erro inesperado.';
-      toast.error('Erro ao gerar carrossel', { description: message, duration: 6000 });
+      toast.error('Falha na geração', { description: error.message });
     } finally {
       setStatusMessage('');
     }
-  }, []);
-
-  const handleGenerate = (url: string, sourceType: SourceType, slideCount: number) => {
-    setLastUrl(url);
-    setLastSourceType(sourceType);
-    setLastSlideCount(slideCount);
-    setCarouselData(null);
-    runGeneration(url, sourceType, slideCount);
-  };
-
-  const handleRegenerate = () => {
-    if (lastUrl) { setCarouselData(null); runGeneration(lastUrl, lastSourceType, lastSlideCount); }
   };
 
   const isLoading = status === 'extracting' || status === 'generating';
-
-  // ── Template selection ──────────────────────────────────────
-  const handleSelectTemplate = (type: TemplateType) => {
-    setSelectedTemplate(type);
-    setCarouselV2(null); // reset preview until form fires onChange
-  };
 
   return (
     <div className="space-y-8 pb-8">
@@ -81,178 +83,172 @@ export default function CarouselPage() {
               <LayoutTemplate className="h-5 w-5 text-primary" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Gerador de Carrossel
+              Gerador de Carrosséis
             </h1>
           </div>
           <p className="text-muted-foreground ml-12">
-            Crie carrosséis profissionais para o Instagram com IA ou templates estratégicos.
+            Escolha um formato estratégico, gere o conteúdo via IA e exporte para o Instagram.
           </p>
         </div>
       </div>
 
-      {/* Mode Tabs */}
-      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
-        <button
-          type="button"
-          onClick={() => setMode('ai')}
-          className={cn(
-            'flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-            mode === 'ai'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <Link2 className="h-4 w-4" />
-          URL + IA
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('templates')}
-          className={cn(
-            'flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-            mode === 'templates'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <Layers className="h-4 w-4" />
-          Templates
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">5</span>
-        </button>
-      </div>
-
-      {/* ── AI MODE ─────────────────────────────────────────── */}
-      {mode === 'ai' && (
-        <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
-          {/* Left: Form */}
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-base font-semibold text-foreground">Configurar Geração</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Cole o link e escolha o tipo de conteúdo.</p>
-              </div>
-              <CarouselInputForm onGenerate={handleGenerate} status={status} statusMessage={statusMessage} />
+      <div className="grid grid-cols-1 xl:grid-cols-[440px_1fr] gap-6 items-start">
+        {/* Left Panel: Flow Controls */}
+        <div className="space-y-6 max-h-[calc(100vh-140px)] overflow-y-auto pr-2 pb-10">
+          
+          {/* Step 1: Template Selection */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">1</span>
+                Design Estratégico
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 ml-8">Selecione a estrutura visual e narrativa do post.</p>
             </div>
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-              <div className="flex gap-2.5">
-                <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Como funciona?</p>
-                  <ul className="text-xs text-amber-700/80 dark:text-amber-400/80 space-y-1 list-disc list-inside">
-                    <li>Cole qualquer URL de artigo ou notícia</li>
-                    <li>Para YouTube, use o link do vídeo completo</li>
-                    <li>A IA estrutura o conteúdo em slides prontos</li>
-                    <li>Edite cada slide antes de exportar</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Preview */}
-          <div className="min-h-[400px]">
-            {!carouselData && !isLoading && (
-              <div className="h-full min-h-[420px] rounded-2xl border border-dashed border-border bg-muted/20 flex flex-col items-center justify-center gap-4 text-center p-8">
-                <div className="flex gap-2">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="rounded-xl bg-gradient-to-br from-muted to-muted/50 border border-border/50"
-                      style={{ width: 80, height: 100, opacity: 1 - i * 0.25, transform: `rotate(${(i - 1) * 3}deg) translateY(${i === 1 ? -4 : 0}px)` }}
-                    />
-                  ))}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Nenhum carrossel gerado ainda</p>
-                  <p className="text-xs text-muted-foreground max-w-xs">Cole uma URL no formulário ao lado e clique em "Gerar Carrossel" para começar.</p>
-                </div>
-              </div>
-            )}
-            {isLoading && (
-              <div className="h-full min-h-[420px] rounded-2xl border border-border bg-card flex flex-col items-center justify-center gap-6 p-8">
-                <div className="flex gap-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-xl animate-pulse"
-                      style={{ width: 70, height: 87, background: `hsl(${220 + i * 20}, 70%, ${60 + i * 5}%)`, opacity: 0.3 + i * 0.15, animationDelay: `${i * 100}ms` }}
-                    />
-                  ))}
-                </div>
-                <div className="space-y-2 text-center">
-                  <p className="text-sm font-semibold text-foreground">{statusMessage || 'Processando...'}</p>
-                  <p className="text-xs text-muted-foreground">Isso pode levar até 30 segundos para textos longos.</p>
-                </div>
-              </div>
-            )}
-            {carouselData && !isLoading && (
-              <CarouselPreview data={carouselData} onRegenerate={handleRegenerate} isRegenerating={isLoading} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── TEMPLATES MODE ──────────────────────────────────── */}
-      {mode === 'templates' && (
-        <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
-          {/* Left panel */}
-          <div className="space-y-4 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-            {/* Template selector */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="ml-8">
               <TemplateSelector selected={selectedTemplate} onSelect={handleSelectTemplate} />
             </div>
+          </div>
 
-            {/* Form — only shown after template is selected */}
-            {selectedTemplate && (
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-foreground">Preencher Conteúdo</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    O preview atualiza em tempo real enquanto você digita.
-                  </p>
-                </div>
+          {/* Step 2: AI Generation (Only visible if template selected) */}
+          <div className={`rounded-2xl border bg-card p-5 shadow-sm space-y-4 transition-all duration-300 ${!selectedTemplate ? 'opacity-50 pointer-events-none border-dashed border-border/50 bg-muted/30' : 'border-border'}`}>
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${selectedTemplate ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'}`}>2</span>
+                Geração de Conteúdo
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 ml-8">Deixe a IA escrever o texto, ou pule direto para o editor manual abaixo.</p>
+            </div>
+            
+            <div className="ml-8 space-y-4">
+              <div className="flex gap-2 p-1 bg-muted rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setSourceType('news')}
+                  disabled={!selectedTemplate || isLoading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-lg transition-all ${
+                    sourceType === 'news' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Link (Artigo/Notícia)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourceType('video')}
+                  disabled={!selectedTemplate || isLoading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-lg transition-all ${
+                    sourceType === 'video' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  Vídeo (YouTube)
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">URL de Origem</Label>
+                <Input
+                  placeholder={sourceType === 'news' ? 'https://exame.com/...' : 'https://youtube.com/watch?...'}
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  disabled={!selectedTemplate || isLoading}
+                  className="bg-background"
+                />
+              </div>
+
+              <Button 
+                onClick={handleGenerateAI} 
+                disabled={!selectedTemplate || isLoading || !url} 
+                className="w-full gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {statusMessage || 'Processando...'}
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    Gerar com IA
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Step 3: Manual Editor */}
+          <div className={`rounded-2xl border bg-card p-5 shadow-sm space-y-4 transition-all duration-300 ${!selectedTemplate ? 'opacity-50 pointer-events-none border-dashed border-border/50 bg-muted/30' : 'border-border'}`}>
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${selectedTemplate ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'}`}>3</span>
+                Ajuste Fino
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 ml-8">Edite os textos e ajuste as cores antes de exportar.</p>
+            </div>
+
+            {selectedTemplate && carouselV2 && !isLoading && (
+              <div className="ml-8 mt-4 pt-4 border-t border-border">
                 <TemplateForm
-                  key={selectedTemplate}
+                  key={`${selectedTemplate}-${carouselV2.slides[0]?.title}`} // Force re-render if slides swap completely
                   templateType={selectedTemplate}
                   onChange={setCarouselV2}
+                  initialData={carouselV2}
                 />
               </div>
             )}
+            
+            {isLoading && (
+               <div className="ml-8 h-32 flex items-center justify-center border border-dashed border-border rounded-xl bg-muted/20">
+                 <p className="text-xs text-muted-foreground animate-pulse">A IA está reescrevendo o formulário...</p>
+               </div>
+            )}
           </div>
 
-          {/* Right: Live Preview */}
-          <div className="min-h-[500px]">
-            {!selectedTemplate && (
-              <div className="h-full min-h-[500px] rounded-2xl border border-dashed border-border bg-muted/20 flex flex-col items-center justify-center gap-5 text-center p-8">
-                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <Layers className="h-8 w-8 text-primary/60" />
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold text-foreground">Escolha um template</p>
-                  <p className="text-xs text-muted-foreground max-w-xs">
-                    Selecione um dos 5 modelos estratégicos ao lado para ver o preview ao vivo do seu carrossel.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {['Tutorial', 'Myth Buster', 'Case Study', 'Curadoria', 'Manifesto'].map(label => (
-                    <span key={label} className="text-xs px-2.5 py-1 rounded-full bg-muted border border-border text-muted-foreground">
-                      {label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedTemplate && !carouselV2 && (
-              <div className="h-full min-h-[300px] rounded-2xl border border-dashed border-border bg-muted/10 flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Carregando preview...</p>
-              </div>
-            )}
-
-            {carouselV2 && <LivePreview data={carouselV2} />}
-          </div>
         </div>
-      )}
+
+        {/* Right Panel: Live Preview */}
+        <div className="sticky top-6">
+          {!selectedTemplate && (
+            <div className="h-[600px] rounded-3xl border-2 border-dashed border-border bg-muted/20 flex flex-col items-center justify-center gap-5 text-center p-8">
+              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Layers className="h-8 w-8 text-primary/60" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-lg font-semibold text-foreground">Aguardando Template</p>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  Escolha um design no Passo 1 para iniciar a criação do seu carrossel.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {selectedTemplate && isLoading && (
+            <div className="h-[700px] rounded-3xl border border-border bg-card flex flex-col items-center justify-center gap-6 p-8 shadow-sm">
+              <div className="flex gap-3 relative">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl bg-primary/20 animate-pulse border border-primary/30"
+                    style={{ width: 70, height: 87, opacity: 1 - i * 0.15, animationDelay: `${i * 150}ms` }}
+                  />
+                ))}
+                <Wand2 className="absolute -top-6 -right-6 h-8 w-8 text-primary animate-bounce" />
+              </div>
+              <div className="space-y-2 text-center">
+                <p className="text-base font-semibold text-foreground">{statusMessage || 'Pensando na estrutura...'}</p>
+                <p className="text-xs text-muted-foreground">Analisando o conteúdo e formatando para o modelo {selectedTemplate}.</p>
+              </div>
+            </div>
+          )}
+
+          {selectedTemplate && carouselV2 && !isLoading && (
+            <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
+              <LivePreview data={carouselV2} />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

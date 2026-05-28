@@ -167,8 +167,13 @@ export function MythBusterSlide({ slide, settings, totalSlides }: Props) {
                 gap: '24px',
               }}
             >
-              <div style={{ flex: 1, height: '2px', backgroundColor: `${accent}40` }} />
-              <span style={{ fontSize: '28px', color: `${accent}80` }}>{settings.handle}</span>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {settings.logoUrl ? (
+                  <img src={settings.logoUrl} alt="Logo" style={{ height: '32px', objectFit: 'contain', opacity: 0.5 }} />
+                ) : (
+                  <span style={{ fontSize: '28px', color: `${accent}80` }}>{settings.handle}</span>
+                )}
+              </div>
             </div>
           </div>
         )}

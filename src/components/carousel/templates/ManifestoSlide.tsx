@@ -39,6 +39,16 @@ export function ManifestoSlide({ slide, settings, totalSlides }: Props) {
         }}
       />
 
+      <div className="absolute top-0 left-0 right-0" style={{ padding: '60px 108px', display: 'flex', justifyContent: 'center' }}>
+        {settings.logoUrl ? (
+          <img src={settings.logoUrl} alt="Logo" style={{ height: '32px', objectFit: 'contain', opacity: 0.4 }} />
+        ) : (
+          <span style={{ fontSize: '28px', color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            {settings.handle}
+          </span>
+        )}
+      </div>
+
       {/* Safe zone - extra center focus */}
       <div
         className="absolute inset-0 flex flex-col"
@@ -46,17 +56,8 @@ export function ManifestoSlide({ slide, settings, totalSlides }: Props) {
       >
         {/* Top: handle + counter */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '80px' }}>
-          <span
-            style={{
-              fontSize: '28px',
-              fontWeight: 600,
-              color: isCover ? 'rgba(255,255,255,0.6)' : '#9ca3af',
-              fontFamily: `'Inter', sans-serif`,
-              letterSpacing: '0.04em',
-            }}
-          >
-            {settings.handle}
-          </span>
+          {/* Logo or Handle is now absolute top, so this is just for spacing if needed, but we can leave the progress dots on the right */}
+          <div />
           {/* Progress dots */}
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             {Array.from({ length: totalSlides }).map((_, i) => (

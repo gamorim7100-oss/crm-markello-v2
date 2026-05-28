@@ -234,6 +234,20 @@ export function CurationSlide({ slide, settings, totalSlides }: Props) {
           </div>
         )}
       </div>
+
+      {/* Bottom handle / logo */}
+      <div
+        className="absolute bottom-0 left-0 right-0"
+        style={{ padding: '40px 108px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
+      >
+        {settings.logoUrl ? (
+          <img src={settings.logoUrl} alt="Logo" style={{ height: '32px', objectFit: 'contain', opacity: 0.5 }} />
+        ) : (
+          <span style={{ fontSize: '28px', color: '#94a3b8' }}>
+            {settings.handle}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

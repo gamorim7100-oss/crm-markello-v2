@@ -1,12 +1,9 @@
 // ============================================================
 // carouselService.ts
-// Responsável por:
-// 1. Extrair conteúdo via Jina Reader (notícia ou vídeo)
-// 2. Chamar a OpenAI com o system prompt estruturado
-// 3. Retornar CarouselData tipado
+// AI Extraction & Generation for Carousel V2
 // ============================================================
 
-import type { CarouselData, SourceType } from '@/types/carousel.types';
+import type { SourceType, TemplateType, SlideV2 } from '@/types/carousel-v2.types';
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY as string;
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -15,27 +12,19 @@ const EXTRACTION_TIMEOUT_MS = 20000;
 const GENERATION_TIMEOUT_MS = 40000;
 
 // ─────────────────────────────────────────────────────────────
-// Utilitários
+// Extraction
 // ─────────────────────────────────────────────────────────────
 
-/** Fetch com timeout controlado */
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    return response;
+    return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-/** Valida se a string é uma URL válida */
 export function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -45,292 +34,188 @@ export function isValidUrl(url: string): boolean {
   }
 }
 
-/** Detecta se a URL é do YouTube */
 function isYouTubeUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return (
-      parsed.hostname.includes('youtube.com') ||
-      parsed.hostname.includes('youtu.be')
-    );
+    return parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be');
   } catch {
     return false;
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Etapa 1: Extração de conteúdo
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Extrai o conteúdo textual de uma URL usando o Jina Reader.
- * Funciona para notícias e para páginas do YouTube (extrai a descrição
- * e metadados visíveis na página).
- */
 async function extractContentFromUrl(url: string): Promise<string> {
   const jinaUrl = `${JINA_READER_BASE}${url}`;
-
   let response: Response;
-
   try {
-    response = await fetchWithTimeout(
-      jinaUrl,
-      {
-        headers: {
-          Accept: 'text/plain',
-          'X-Return-Format': 'text',
-        },
-      },
-      EXTRACTION_TIMEOUT_MS
-    );
+    response = await fetchWithTimeout(jinaUrl, { headers: { Accept: 'text/plain', 'X-Return-Format': 'text' } }, EXTRACTION_TIMEOUT_MS);
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(
-        'A extração do conteúdo demorou muito. Tente um link diferente ou cole o texto manualmente.'
-      );
-    }
-    throw new Error(
-      'Não foi possível acessar a URL. Verifique sua conexão ou tente outro link.'
-    );
+    if (error instanceof Error && error.name === 'AbortError') throw new Error('A extração demorou muito. Tente um link diferente.');
+    throw new Error('Não foi possível acessar a URL. Verifique a conexão.');
   }
 
   if (!response.ok) {
-    if (response.status === 403 || response.status === 401) {
-      throw new Error(
-        'Este site bloqueou o acesso automático. Tente colar o texto manualmente.'
-      );
-    }
-    if (response.status === 404) {
-      throw new Error('URL não encontrada (404). Verifique o link e tente novamente.');
-    }
-    throw new Error(
-      `Não foi possível ler este link (erro ${response.status}). Tente outro.`
-    );
+    if (response.status === 403 || response.status === 401) throw new Error('Este site bloqueou o acesso.');
+    if (response.status === 404) throw new Error('URL não encontrada (404).');
+    throw new Error(`Erro ${response.status} ao extrair URL.`);
   }
 
   const text = await response.text();
-
-  if (!text || text.trim().length < 100) {
-    throw new Error(
-      'O conteúdo extraído é muito curto para gerar um carrossel. Tente um link com mais texto.'
-    );
-  }
-
-  // Limita a 12.000 caracteres para não estouro de tokens
+  if (!text || text.trim().length < 100) throw new Error('Conteúdo muito curto.');
   return text.slice(0, 12000);
 }
 
-/**
- * Ponto de entrada principal para extração.
- * Suporta notícias e vídeos do YouTube.
- */
 export async function extractContent(url: string, sourceType: SourceType): Promise<string> {
   const isYT = isYouTubeUrl(url);
-
-  if (sourceType === 'video' && !isYT) {
-    throw new Error(
-      'Para vídeos, use apenas links do YouTube por enquanto. O suporte a outras plataformas está em desenvolvimento.'
-    );
-  }
-
-  const content = await extractContentFromUrl(url);
-  return content;
+  if (sourceType === 'video' && !isYT) throw new Error('Use apenas links do YouTube para vídeos.');
+  return await extractContentFromUrl(url);
 }
 
 // ─────────────────────────────────────────────────────────────
-// Etapa 2: Geração com LLM (OpenAI gpt-4o-mini)
+// AI Generation per Template
 // ─────────────────────────────────────────────────────────────
 
-function getSystemPrompt(slideCount: number): string {
-  return `Você é um copywriter especialista em marketing digital da "Ademicon", focando em criação de conteúdo para Instagram.
-Sua tarefa é transformar o texto fornecido em um carrossel de Instagram profissional com o tom de voz da marca.
+function getSystemPromptForTemplate(templateType: TemplateType): string {
+  const baseInstructions = `Você é um copywriter genial especializado em Instagram viral.
+Seu objetivo é transformar o conteúdo fornecido em um carrossel magnético e altamente engajante.
+Você deve retornar APENAS um JSON válido contendo um array de objetos chamado "slides".
+Cada slide DEVE conter: "type", "title", "bodyText". O array representa os slides ordenados.
+As regras de "type" permitidos são: COVER, CONTENT, TRANSITION, CTA.
+Mantenha o texto ultra curto, direto e de altíssimo impacto. Sem blocos densos de texto. O idioma deve ser Português do Brasil.`;
 
-REGRAS OBRIGATÓRIAS DE CONTEÚDO E TOM DE VOZ (ADEMICON):
-- Gere EXATAMENTE ${slideCount} slides.
-- O conteúdo deve ser em PORTUGUÊS BRASILEIRO.
-- O volume de texto DEVE SER MÍNIMO. Use bullet points (tópicos) ou frases curtas de muito impacto. As pessoas no Instagram apenas escaneiam. NUNCA escreva parágrafos longos ou blocos densos de texto.
-- Use linguagem direta, dinâmica, confiável e voltada para a realização de planos (consórcio, planejamento financeiro).
-- Foque na jornada do cliente e na conquista de objetivos reais.
+  let specificInstructions = '';
 
-DIRETRIZES DE IMAGEM (PARA O gpt-image-2):
-- A marca Ademicon usa fotos "claras, modernas, espontâneas, captando momentos reais".
-- O prompt de imagem gerado DEVE forçar a paleta de cores institucional: tons de Vermelho/Laranja e Azul da Ademicon.
-- NUNCA use e proíba explicitamente "tons terrosos, marrons, sépia ou vintage". Sempre claros, ensolarados, frios ou com contraste vermelho vivo.
+  switch (templateType) {
+    case 'TUTORIAL':
+      specificInstructions = `ESTRUTURA TUTORIAL (Aprox. 7 a 9 slides):
+- Slide 1 (type: COVER): "title" deve ser uma promessa forte, ex: "O Guia Definitivo de [X]". "subtitle" (opcional) detalhando a promessa. "stepNumber": 0
+- Slides 2 até N-2 (type: CONTENT): "title" ex:"Passo 1", "bodyText" ultra focado na ação. DEVE incluir a propriedade "stepNumber" (1, 2, 3...).
+- Slide N-1 (type: TRANSITION): "title" ex:"✅ Checklist Rápido", "bodyText" um bullet-point dos passos. "stepNumber": 0
+- Slide N (type: CTA): "title" ex:"💾 Salve este guia", "bodyText" chamando para salvar/compartilhar. "stepNumber": 0`;
+      break;
 
-ESTRUTURA DOS SLIDES:
-- Slide 1 (HOOK): Título muito curto e chamativo que prende a atenção.
-- Slides intermediários: Tópicos ultra curtos e escaneáveis. Vá direto ao ponto.
-- Último Slide (CTA): Call to Action claro ("Salve", "Compartilhe", "Fale com um especialista Ademicon").
+    case 'MYTH_BUSTER':
+      specificInstructions = `ESTRUTURA MYTH BUSTER (Aprox. 6 a 8 slides):
+- Slide 1 (type: COVER): "title" deve ser a crença comum/mito aspeada. DEVE ter "isTruth": false
+- Slide 2 (type: CONTENT): "title" ex:"Por que você acredita nisso?", "bodyText" explicando o viés. DEVE ter "isTruth": false
+- Slide 3 (type: TRANSITION): "title" ex:"⚡ A Verdade Crua", "bodyText" ou "subtitle" preparando o terreno. DEVE ter "isTruth": true
+- Slides 4 até N-2 (type: CONTENT): "title" com o argumento central, "bodyText" com a quebra da objeção. DEVE ter "isTruth": true
+- Slide N-1 (type: TRANSITION): "title" ex:"Conclusão", "bodyText" resumindo a revelação. DEVE ter "isTruth": true
+- Slide N (type: CTA): "title" apelativo para compartilhamento, "bodyText" pedindo para compartilhar para ajudar outros. DEVE ter "isTruth": true`;
+      break;
 
-SAÍDA: Retorne APENAS um JSON válido, sem texto adicional.
-O JSON deve seguir EXATAMENTE este formato:
-{
-  "carousel_title": "Título descritivo do carrossel",
-  "slides": [
-    {
-      "slide_number": 1,
-      "title": "Título do slide (curto)",
-      "content": "Conteúdo em tópicos (•) ou frases super curtas",
-      "image_suggestion": "Prompt descritivo em inglês para gpt-image-2. DEVE INCLUIR: 'Bright, modern lighting, realistic photo, Ademicon brand colors (vibrant red, orange, and blue palette), NO earthy tones, NO sepia, NO brown'. Ex: 'Bright realistic photo of a modern new home living room, vibrant red and blue accents, NO brown, NO sepia'"
-    }
-  ]
-}`;
-}
+    case 'CASE_STUDY':
+      specificInstructions = `ESTRUTURA CASE STUDY (Aprox. 6 a 8 slides):
+- Slide 1 (type: COVER): "title" como o cliente/situação alcançou algo impossível. DEVE ter "metric" (string, ex: "+300% de crescimento").
+- Slide 2 (type: CONTENT): "title" ex:"🔴 O Ponto de Partida", "bodyText" explicando a dor.
+- Slide 3 (type: CONTENT): "title" ex:"🔍 O Diagnóstico", "bodyText" o que foi percebido.
+- Slides intermediários (type: CONTENT): "title" com os passos da solução, "bodyText" com a execução. Podem incluir "metric" se relevante.
+- Slide N-1 (type: TRANSITION): "title" ex:"A Grande Lição", "bodyText" princípio replicável.
+- Slide N (type: CTA): "title" focado em conversão ou inbox (ex:"Quer resultados assim?"), "bodyText" pedindo clique no link da bio. "metric": ""`;
+      break;
 
-/**
- * Envia o conteúdo extraído para a OpenAI e retorna CarouselData tipado.
- */
-export async function generateCarousel(
-  extractedContent: string,
-  sourceUrl: string,
-  slideCount: number
-): Promise<CarouselData> {
-  if (!OPENAI_API_KEY) {
-    throw new Error(
-      'Chave da API OpenAI não configurada. Adicione VITE_OPENAI_API_KEY ao .env.local'
-    );
+    case 'CURATION':
+      specificInstructions = `ESTRUTURA CURADORIA/LISTA (Aprox. 6 a 9 slides):
+- Slide 1 (type: COVER): "title" focado em uma lista (ex: "7 Ferramentas que mudam o jogo"), "subtitle" o benefício final.
+- Slides 2 a N-2 (type: CONTENT): DEVE ter "itemName" (nome da ferramenta/conceito). "title" como o benefício, "bodyText" curta descrição. Opcional "iconType" (emoji).
+- Slide N-1 (type: TRANSITION): "itemName" ex:"🏆 Bônus", "title" a dica de ouro, "bodyText" o segredo. "iconType": "🎁"
+- Slide N (type: CTA): "title" ex:"Faltou alguma?", "bodyText" estimulando comentários e saves.`;
+      break;
+
+    case 'MANIFESTO':
+      specificInstructions = `ESTRUTURA MANIFESTO/THREAD (Aprox. 7 a 10 slides):
+- Slides não possuem "title", apenas "bodyText". O texto DEVE ter no máximo 10 palavras por slide para gerar curiosidade!
+- Slide 1 (type: COVER): "bodyText" uma frase polemica que abre um loop aberto. DEVE ter "isCliffhanger": true
+- Slides intermediários (type: CONTENT): "bodyText" com continuação fluida. Todos com "isCliffhanger": true. O ÚLTIMO slide de conteúdo tem "isCliffhanger": false.
+- Slide N-1 (type: TRANSITION): "title" ex:"A grande pergunta:", "bodyText" questionamento final reflexivo. "isCliffhanger": false
+- Slide N (type: CTA): "title" leve, ex:"Siga para evoluir", "bodyText" reforçando o movimento. "isCliffhanger": false
+(O uso do campo title é restrito ao Transition e CTA, no cover/content foque apenas no bodyText).`;
+      break;
   }
 
-  const userMessage = `URL de origem: ${sourceUrl}\n\nConteúdo extraído:\n\n${extractedContent}`;
+  return `${baseInstructions}\n\n${specificInstructions}\n\nO JSON final deve ter esta exata estrutura:\n{ "slides": [ { ... propriedades baseadas nas regras acima ... } ] }`;
+}
 
+export async function generateCarouselV2(extractedContent: string, sourceUrl: string, templateType: TemplateType): Promise<SlideV2[]> {
+  if (!OPENAI_API_KEY) throw new Error('API Key ausente no .env.local');
+
+  const userMessage = `URL fonte: ${sourceUrl}\nConteúdo Extraído:\n${extractedContent}`;
   const requestBody = {
     model: 'gpt-4o-mini',
     temperature: 0.7,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: getSystemPrompt(slideCount) },
+      { role: 'system', content: getSystemPromptForTemplate(templateType) },
       { role: 'user', content: userMessage },
     ],
   };
 
-  let response: Response;
-
-  try {
-    response = await fetchWithTimeout(
-      OPENAI_API_URL,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify(requestBody),
-      },
-      GENERATION_TIMEOUT_MS
-    );
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(
-        'A IA demorou muito para responder. Tente novamente em alguns instantes.'
-      );
-    }
-    throw new Error(
-      'Erro ao conectar à API de IA. Verifique sua conexão e tente novamente.'
-    );
-  }
+  const response = await fetchWithTimeout(OPENAI_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify(requestBody),
+  }, GENERATION_TIMEOUT_MS).catch(e => {
+    if (e.name === 'AbortError') throw new Error('A IA demorou muito. Tente novamente.');
+    throw new Error('Erro de conexão com a IA.');
+  });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('Chave da API inválida. Verifique sua VITE_OPENAI_API_KEY.');
-    }
-    if (response.status === 429) {
-      throw new Error(
-        'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.'
-      );
-    }
-    const errorBody = await response.text().catch(() => '');
-    throw new Error(`Erro na API de IA (${response.status}): ${errorBody || 'Erro desconhecido'}`);
+    if (response.status === 401) throw new Error('API Key inválida.');
+    if (response.status === 429) throw new Error('Limite de uso da OpenAI atingido.');
+    throw new Error(`Erro da IA (${response.status})`);
   }
 
   const data = await response.json();
-  const rawContent: string = data?.choices?.[0]?.message?.content;
+  const rawContent = data?.choices?.[0]?.message?.content;
+  if (!rawContent) throw new Error('IA retornou vazio.');
 
-  if (!rawContent) {
-    throw new Error('A IA retornou uma resposta vazia. Tente novamente.');
-  }
-
-  let parsed: CarouselData;
+  let parsed: { slides: SlideV2[] };
   try {
-    parsed = JSON.parse(rawContent) as CarouselData;
+    parsed = JSON.parse(rawContent);
   } catch {
-    throw new Error('A IA retornou um formato inválido. Tente regenerar.');
+    throw new Error('IA retornou um JSON inválido.');
   }
 
-  // Validação mínima da estrutura
   if (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
-    throw new Error('O carrossel gerado não contém slides. Tente novamente.');
+    throw new Error('Carrossel gerado não contém slides válidos.');
   }
 
-  return parsed;
+  // Sanitize indices
+  return parsed.slides.map((s, idx) => ({ ...s, slideIndex: idx }));
 }
 
-// ─────────────────────────────────────────────────────────────
-// Pipeline completo: extração → geração
-// ─────────────────────────────────────────────────────────────
-
-export async function generateCarouselFromUrl(
+export async function generateCarouselV2FromUrl(
   url: string,
   sourceType: SourceType,
-  slideCount: number,
+  templateType: TemplateType,
   onStatusChange?: (status: string) => void
-): Promise<CarouselData> {
+): Promise<SlideV2[]> {
   onStatusChange?.('Extraindo conteúdo da URL...');
   const content = await extractContent(url, sourceType);
 
-  onStatusChange?.('Gerando carrossel com IA...');
-  const carousel = await generateCarousel(content, url, slideCount);
+  onStatusChange?.('Gerando conteúdo estruturado com IA...');
+  const slides = await generateCarouselV2(content, url, templateType);
 
-  return carousel;
+  return slides;
 }
 
 // ─────────────────────────────────────────────────────────────
-// Etapa 3: Geração de Imagem com DALL-E 3
+// (Opcional) DALL-E / GPT-Image 2 para fundos - mantido por segurança
 // ─────────────────────────────────────────────────────────────
-
-/**
- * Gera uma imagem usando DALL-E 3 com base na sugestão de imagem da IA.
- */
 export async function generateImageForSlide(prompt: string): Promise<string> {
-  if (!OPENAI_API_KEY) {
-    throw new Error('Chave da API OpenAI não configurada.');
-  }
-
+  if (!OPENAI_API_KEY) throw new Error('Chave da API OpenAI não configurada.');
   const enhancedPrompt = `A high quality, aesthetic background image for an Instagram carousel slide. No text in the image. Style: Modern, clean, minimal. Concept: ${prompt}`;
-
   try {
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-image-2',
-        prompt: enhancedPrompt,
-        n: 1,
-        size: '1024x1024',
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: 'gpt-image-2', prompt: enhancedPrompt, n: 1, size: '1024x1024' }),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      const apiError = errorData?.error?.message || `Erro na geração de imagem (${response.status})`;
-      throw new Error(apiError);
-    }
-
+    if (!response.ok) throw new Error('Erro ao gerar imagem.');
     const data = await response.json();
-    if (data.data && data.data[0]) {
-      if (data.data[0].url) {
-        return data.data[0].url;
-      }
-      if (data.data[0].b64_json) {
-        return `data:image/png;base64,${data.data[0].b64_json}`;
-      }
-    }
-    throw new Error('Formato de resposta de imagem inválido.');
+    if (data.data?.[0]?.url) return data.data[0].url;
+    if (data.data?.[0]?.b64_json) return `data:image/png;base64,${data.data[0].b64_json}`;
+    throw new Error('Resposta de imagem inválida.');
   } catch (error: any) {
-    console.error('Erro DALL-E:', error);
-    // Repassa a mensagem original se existir, senão usa a genérica
-    throw new Error(error.message || 'Não foi possível gerar a imagem no momento.');
+    throw new Error(error.message || 'Falha ao gerar imagem.');
   }
 }
