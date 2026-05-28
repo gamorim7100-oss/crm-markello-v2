@@ -8,6 +8,8 @@ import type { CarouselSlide } from '@/types/carousel.types';
 import { generateImageForSlide } from '@/services/carouselService';
 import { cn } from '@/lib/utils';
 
+import ademiconLogo from '@/assets/ademicon/ademicon_logo.svg';
+
 interface CarouselSlideCardProps {
   slide: CarouselSlide;
   totalSlides: number;
@@ -96,11 +98,10 @@ export function CarouselSlideCard({ slide, totalSlides, onChange }: CarouselSlid
         {/* Overlay de textura sutil (apenas se for gradiente) */}
         {!slide.image_url && <div className="absolute inset-0 bg-black/10" />}
 
-        {/* Header do card - Topo (Logo placeholder para upload futuro) */}
+        {/* Header do card - Topo */}
         <div className="relative z-10 flex flex-col p-6 pb-0 pt-6 min-h-[60px]">
-          {/* Logo container invisível por enquanto, preservando espaço */}
           <div className="flex items-center justify-between mb-4 h-8">
-            {/* O logo PNG do usuário entrará aqui no futuro */}
+            <img src={ademiconLogo} alt="Ademicon Logo" className="h-6 w-auto brightness-0 invert drop-shadow-md" />
           </div>
           
           <div className="flex gap-2 opacity-60">
